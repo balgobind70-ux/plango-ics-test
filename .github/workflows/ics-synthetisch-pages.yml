@@ -37,7 +37,7 @@ jobs:
           from pathlib import Path
           import os
           phase=os.environ['PHASE']
-          data=Path(f'ics-public-test/phase-{phase}.ics').read_text()
+          data=Path(f'phase-{phase}.ics').read_text()
           assert data.startswith('BEGIN:VCALENDAR'), 'Invalid calendar'
           assert data.strip().endswith('END:VCALENDAR'), 'Invalid calendar ending'
           for secret in ('LOCATION:', 'DESCRIPTION:', 'ATTENDEE:', 'ORGANIZER:', 'plangoapp.nl'):
