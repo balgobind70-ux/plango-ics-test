@@ -1,0 +1,57 @@
+name: Fictieve ICS Google abonnementstest
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "Testversie (0=start, 1=verplaatsen/toevoegen, 2=annuleren)"
+        required: true
+        default: "0"
+        type: choice
+        options:
+          - "0"
+          - "1"
+          - "2"
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: "ics-synthetisch"
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check fictitious ICS only
+        shell: bash
+        env:
+          PHASE: ${{ inputs.phase }}
+        run: |
+          set -euo pipefail
+          case "$PHASE" in 0|1|2) ;; *) exit 1 ;; esac
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          phase=os.environ['PHASE']
+          data=Path(f'ics-public-test/phase-{phase}.ics').read_text()
+          assert data.startswith('BEGIN:VCALENDAR'), 'Invalid calendar'
+          assert data.strip().endswith('END:VCALENDAR'), 'Invalid calendar ending'
+          for secret in ('LOCATION:', 'DESCRIPTION:', 'ATTENDEE:', 'ORGANIZER:', 'plangoapp.nl'):
+              assert secret not in data, 'Forbidden private data'
+          import re
+          assert len(re.findall(r'^BEGIN:VEVENT$',data,re.M))==int((2,3,1)[int(phase)])
+          site=Path('_site')
+          site.mkdir(exist_ok=True)
+          (site/'test.ics').write_bytes(data.replace('\n','\r\n').replace('\r\r\n','\r\n').encode())
+          (site/'.nojekyll').write_text('')
+          PY
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
